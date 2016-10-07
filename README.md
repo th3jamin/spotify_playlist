@@ -1,1 +1,1 @@
-# spotify_playlist## Dependencies* Node, npm, python (brew install node)* Soundflower (included)* Quicktime Player* Spotify Player###* Use the included initialize.sh script to auto setup your node and python dependencies
+# spotify_playlist## Dependencies* Node, npm, python (brew install node)* Soundflower (included)* Quicktime Player* Spotify Player## Setup* Use the included initialize.sh script to auto setup your node and python dependencies## Execution* ./bin/playlist_gen.py -p "<Spotify playlist name>" -u "<spotify user name>"
