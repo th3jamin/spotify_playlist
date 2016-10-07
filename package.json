@@ -1,6 +1,6 @@
 {
   "author": "Benjamin Pucci",
-  "name": "spotify playlist grabber",
+  "name": "spotify-playlist-grabber",
   "description": "does things",
   "version": "0.0.1",
   "dependencies": {
