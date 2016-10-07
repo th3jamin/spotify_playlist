@@ -1,1 +1,1 @@
-# spotify_playlist* Dependencies** Node, npm (brew install node)** Soundflower** Quicktime Player** Spotify Player
+# spotify_playlist# Dependencies## Node, npm (brew install node)## Soundflower## Quicktime Player## Spotify Player###* Use the included initialize.sh script to auto setup your env
