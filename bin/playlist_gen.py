@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import requests, sys, getopt, json, math, subprocess, string, signal, time, threading
+import requests, sys, getopt, json, math, subprocess, string, signal, time, threading, os
 from pprint import pprint
 from Naked.toolshed.shell import execute_js, muterun_js, muterun, execute
 
@@ -95,7 +95,8 @@ def doRecordTrack(track):
     p = muterun(command)
 
 def startNodeServer():
-    success = muterun_js('../app.js')
+    dir_path = os.path.dirname(os.path.realpath(__file__)) + "/../app.js"
+    success = muterun_js(dir_path)
 
 def playlistThread(playlist, user):
     print "Please visit the following to login to spotify: http://localhost:8888, once complete and you see the token page, come back and hit enter"
