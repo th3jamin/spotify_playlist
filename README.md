@@ -1,1 +1,1 @@
-# spotify_playlist
+# spotify_playlist* Dependencies** Node, npm (brew install node)** Soundflower** Quicktime Player** Spotify Player
