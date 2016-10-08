@@ -48,14 +48,7 @@ def convertToSeconds(millis):
 def usage():
     print 'playlist_gen.py -p <playlist-name> -u <spotify-user>'
 
-def findPlaylist(token, user, name):
-    # loop trough all playlists until we find or exhaust,
-    # then call ourselves if we have another playlist
-    limit = 50
-    url = "https://api.spotify.com/v1/users/%s/playlists?offset=0&limit=%s" % (user, limit)
-    return findPlaylist_internal(url, token, user, name)
-
-def findPlaylist_internal(url, token, user, name):
+def findPlaylist(url, token, name):
     # loop trough all playlists until we find or exhaust,
     # then call ourselves if we have another playlist
     auth = "Bearer %s" % (token)
@@ -72,7 +65,7 @@ def findPlaylist_internal(url, token, user, name):
             return list
 
     if json.get('next'):
-        return findPlaylist_internal(json["next"], token, user, name)
+        return findPlaylist(json["next"], token, name)
 
 def extractTracksFromPlaylist(url, token):
     # need to extract a list of tuples
@@ -118,15 +111,14 @@ def main(argv):
     signal.signal(signal.SIGINT, signal_handler)
 
     playlist = ''
-    user = ''
 
     # exactly 3 args!
-    if len(argv) != 4:
+    if len(argv) != 2:
         usage()
         sys.exit(2)
 
     try:
-        opts, args = getopt.getopt(argv,"p:u:h",["playlist=", "user="])
+        opts, args = getopt.getopt(argv,"p:h",["playlist="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -136,24 +128,29 @@ def main(argv):
             sys.exit()
         elif opt in ("-p", "--playlist"):
             playlist = unicode(arg, 'utf_8')
-        elif opt in ("-u", "--user"):
-            user = arg
     print 'Playlist is "', playlist
-    print 'User is "', user
 
     # start the node server in its own thread
     nodeThread = threading.Thread(target=startNodeServer)
     nodeThread.setDaemon(True)
     nodeThread.start()
 
-    print "Please visit the following to login to spotify: http://localhost:8888, LEAVE THAT PAGE OPEN!, come back and hit enter when logged in"
+    print "Please visit the following to login to spotify: http://localhost:8888, come back and hit enter when logged in"
     print ""
 
     # wait for user to login
     raw_input("Press Enter to continue...")
 
-    r = requests.get("http://localhost:8888/token")
-    j = r.json()
+    # get a token from our local /tmp cache
+    token_file = '/tmp/spotify_tokens.json'
+    if os.path.isfile(token_file):
+        with open(token_file) as data_file:
+            j = json.load(data_file)
+    else:
+        print "You must not have logged into Spotify at http://localhost:8888, cannot get access_token"
+        sys.exit(2)
+
+    # load the json token
     if j.get('access_token'):
         print "Received valid access token: %s" % (j['access_token'])
     else:
@@ -161,7 +158,11 @@ def main(argv):
         return
 
     token = j['access_token']
-    playlistJson = findPlaylist(token, user, playlist)
+
+    # start processing at the default playlist for this user
+    playlistJson = findPlaylist('https://api.spotify.com/v1/me/playlists', token, playlist)
+
+    # if we found it get all the tracks as a tuple3 and spin off a thread to record
     if playlistJson == None:
         print "Could not find playlist"
     else:
@@ -174,8 +175,6 @@ def main(argv):
             wt.setDaemon(True)
             wt.start()
             wait(wt)
-
-    sys.exit(2)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
