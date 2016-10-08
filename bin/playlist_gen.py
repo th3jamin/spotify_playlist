@@ -13,6 +13,21 @@ def mkdir_p(path):
             raise
 
 def signal_handler(signal, frame):
+    script = """
+    tell application "Spotify"
+        pause
+    end tell
+    tell application "QuickTime Player"
+        tell (first document)
+            stop
+        end tell
+        ignoring application responses
+            close (first document) without saving
+            quit
+        end ignoring
+    end tell"""
+    command = "osascript -e '%s'" % (script)
+    muterun(command)
     sys.exit(0)
 
 def makeAppleScriptCommand(name, duration, track, playlist):
@@ -28,7 +43,7 @@ tell application "QuickTime Player"
         delay %s
         stop
         tell application "Spotify"
-            stop
+            pause
         end tell
     end tell
 
@@ -201,7 +216,7 @@ def main(argv):
             wt.start()
             wait(wt)
 
-    sys.exit(0) # we are done!
+    signal_handler(None, None)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
