@@ -46,7 +46,7 @@ def convertToSeconds(millis):
     return int(math.ceil(millis/1000))
 
 def usage():
-    print 'playlist_gen.py -p <playlist-name> -u <spotify-user>'
+    print 'playlist_gen.py -p <playlist-name>'
 
 def findPlaylist(url, token, name):
     # loop trough all playlists until we find or exhaust,
