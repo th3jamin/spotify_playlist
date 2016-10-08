@@ -66,6 +66,8 @@ def findPlaylist(url, token, name):
 
     if json.get('next'):
         return findPlaylist(json["next"], token, name)
+    else:
+        return None
 
 def extractTracksFromPlaylist(url, token):
     # need to extract a list of tuples
