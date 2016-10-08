@@ -1,13 +1,22 @@
 #!/usr/bin/env python
-import requests, sys, getopt, json, math, subprocess, string, signal, time, threading, os
+import requests, sys, getopt, json, math, subprocess, string, signal, time, threading, os, errno, getpass
 from pprint import pprint
 from Naked.toolshed.shell import execute_js, muterun_js, muterun, execute
+
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:  # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
 
 def signal_handler(signal, frame):
     sys.exit(0)
 
-def makeAppleScriptCommand(name, duration, track):
-    return """set filePath to (path to home folder as text) & "%s.m4a"
+def makeAppleScriptCommand(name, duration, track, playlist):
+    return """set filePath to (path to music folder as text) & "%s:%s.m4a"
 tell application "QuickTime Player"
     activate
     set new_recording to (new audio recording)
@@ -27,7 +36,7 @@ tell application "QuickTime Player"
     close access file filePath
     export (first document) in filePath using settings preset "Audio Only"
     close (first document) without saving
-end tell""" % (sanitizeName(name), track, duration)
+end tell""" % (sanitizeName(playlist), sanitizeName(name), track, duration)
 
 def sanitizeName(name):
     exclude = set(string.punctuation)
@@ -88,11 +97,12 @@ def extractTracksFromPlaylist(url, token):
 
     return tracks
 
-def doRecordTrack(track):
-    script = makeAppleScriptCommand(track[0],track[1],track[2])
+def doRecordTrack(track, playlist):
+    script = makeAppleScriptCommand(track[0],track[1],track[2], playlist)
     command = "osascript -e '%s'" % (script)
     print "Processing track: %s, %s, %s" % (track[0],track[1],track[2])
     p = muterun(command)
+    time.sleep(3) # deply to let quicktime do its thing
 
 def startNodeServer():
     dir_path = os.path.dirname(os.path.realpath(__file__)) + "/../app.js"
@@ -125,7 +135,7 @@ def main(argv):
             usage()
             sys.exit()
         elif opt in ("-p", "--playlist"):
-            playlist = arg
+            playlist = unicode(arg, 'utf_8')
         elif opt in ("-u", "--user"):
             user = arg
     print 'Playlist is "', playlist
@@ -136,29 +146,34 @@ def main(argv):
     nodeThread.setDaemon(True)
     nodeThread.start()
 
-    print "Please visit the following to login to spotify: http://localhost:8888, once complete and you see the token page, come back and hit enter"
+    print "Please visit the following to login to spotify: http://localhost:8888, LEAVE THAT PAGE OPEN!, come back and hit enter when logged in"
     print ""
 
     # wait for user to login
     raw_input("Press Enter to continue...")
 
-    # json = json.loads(execute("curl -X GET http://localhost:8888/token"))
-
     r = requests.get("http://localhost:8888/token")
-    json = r.json()
-    if json.get('access_token'):
-        print "Received valid access token: %s" % (json['access_token'])
+    j = r.json()
+    if j.get('access_token'):
+        print "Received valid access token: %s" % (j['access_token'])
     else:
         print "You must not have logged into Spotify at http://localhost:8888, cannot get access_token"
         return
 
-    token = json['access_token']
+    token = j['access_token']
     playlistJson = findPlaylist(token, user, playlist)
     if playlistJson == None:
         print "Could not find playlist"
     else:
+        # make the output dir beforehand
+        output_dir = "/Users/%s/Music/%s" % (getpass.getuser(), sanitizeName(playlist))
+        print "Making output directory: " + output_dir
+        mkdir_p(output_dir)
         for track in extractTracksFromPlaylist(playlistJson['tracks']['href'], token):
-            wait(threading.Thread(target=doRecordTrack(track), args=(track)).setDaemon(True).start())
+            wt = threading.Thread(target=doRecordTrack, args=[track, playlist])
+            wt.setDaemon(True)
+            wt.start()
+            wait(wt)
 
     sys.exit(2)
 
