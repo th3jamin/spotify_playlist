@@ -37,7 +37,7 @@ def convertToSeconds(millis):
     return int(math.ceil(millis/1000))
 
 def usage():
-    print 'playlist_gen.py -t <oauth-token> -p <playlist-name> -u <spotify-user>'
+    print 'playlist_gen.py -p <playlist-name> -u <spotify-user>'
 
 def findPlaylist(token, user, name):
     # loop trough all playlists until we find or exhaust,
@@ -98,27 +98,6 @@ def startNodeServer():
     dir_path = os.path.dirname(os.path.realpath(__file__)) + "/../app.js"
     success = muterun_js(dir_path)
 
-def playlistThread(playlist, user):
-    print "Please visit the following to login to spotify: http://localhost:8888, once complete and you see the token page, come back and hit enter"
-    input("Press Enter to continue...")
-
-    #r = requests.get("http://localhost:8888/token")
-    json = json.loads(execute("curl -X GET http://localhost:8888/token"))
-    if json["access_token"]:
-        print "Received valid access token: %s" % (json['access_token'])
-    else:
-        print "You must not have logged into Spotify at http://localhost:8888, cannot get access_token"
-        return
-
-    token = json['access_token']
-    playlistJson = findPlaylist(token, user, playlist)
-    if playlistJson == None:
-        print "Could not find playlist"
-    else:
-        for track in extractTracksFromPlaylist(playlistJson['tracks']['href'], token):
-            doRecordTrack(track)
-    return
-
 def wait(t):
     main_thread = threading.currentThread()
     if t is not main_thread:
@@ -145,8 +124,6 @@ def main(argv):
         if opt == '-h':
             usage()
             sys.exit()
-        elif opt in ("-t", "--token"):
-            token = arg
         elif opt in ("-p", "--playlist"):
             playlist = arg
         elif opt in ("-u", "--user"):
@@ -154,13 +131,18 @@ def main(argv):
     print 'Playlist is "', playlist
     print 'User is "', user
 
+    # start the node server in its own thread
     nodeThread = threading.Thread(target=startNodeServer)
     nodeThread.setDaemon(True)
-    mainThread = threading.Thread(target=playlistThread, args=(playlist, user))
     nodeThread.start()
-    #mainThread.start()
+
     print "Please visit the following to login to spotify: http://localhost:8888, once complete and you see the token page, come back and hit enter"
+    print ""
+
+    # wait for user to login
     raw_input("Press Enter to continue...")
+
+    # json = json.loads(execute("curl -X GET http://localhost:8888/token"))
 
     r = requests.get("http://localhost:8888/token")
     json = r.json()
