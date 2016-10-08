@@ -106,6 +106,19 @@ def wait(t):
     if t is not main_thread:
         t.join()
 
+def stopNodeServer():
+    # force kill the node server and its thread
+    cmd = """ps -ef | grep -e "[s]potify_playlist/.*/app.js" | awk '{print $2}'"""
+    r = muterun(cmd)
+    if r.exitcode == 0:
+        for p in r.stdout.splitlines():
+            if execute("kill -2 %s" % (p)):
+                print "stopped local server successfully"
+            else:
+                print "couldn't stop local server :("
+    else:
+        print "no local server found, doing nothing"
+
 def main(argv):
     # handle ctrl+c
     signal.signal(signal.SIGINT, signal_handler)
@@ -138,6 +151,9 @@ def main(argv):
     print "Please visit the following to login to spotify: http://localhost:8888, come back and hit enter when logged in"
     print ""
 
+    # open the page for them!!!
+    execute('open "http://localhost:8888"')
+
     # wait for user to login
     raw_input("Press Enter to continue...")
 
@@ -148,6 +164,7 @@ def main(argv):
             j = json.load(data_file)
     else:
         print "You must not have logged into Spotify at http://localhost:8888, cannot get access_token"
+        stopNodeServer()
         sys.exit(2)
 
     # load the json token
@@ -155,8 +172,14 @@ def main(argv):
         print "Received valid access token: %s" % (j['access_token'])
     else:
         print "You must not have logged into Spotify at http://localhost:8888, cannot get access_token"
-        return
+        stopNodeServer()
+        sys.exit(2)
 
+    # delete the token file
+    os.remove(token_file)
+
+    # we don't need the local http anymore
+    stopNodeServer()
     token = j['access_token']
 
     # start processing at the default playlist for this user
@@ -175,6 +198,8 @@ def main(argv):
             wt.setDaemon(True)
             wt.start()
             wait(wt)
+
+    sys.exit(0) # we are done!
 
 if __name__ == '__main__':
     main(sys.argv[1:])
