@@ -21,11 +21,18 @@ def signal_handler(signal, frame):
         tell (first document)
             stop
         end tell
+    end tell
+    """
+    command = "osascript -e '%s'" % (script)
+    muterun(command)
+    script = """
+    tell application "QuickTime Player"
         ignoring application responses
             close (first document) without saving
             quit
         end ignoring
-    end tell"""
+    end tell
+    """
     command = "osascript -e '%s'" % (script)
     muterun(command)
     sys.exit(0)
