@@ -12,6 +12,10 @@ def mkdir_p(path):
         else:
             raise
 
+def trackExists(path, name):
+    return os.path.isfile("%s/%s.m4a" % (path, sanitizeName(name)))
+
+
 def signal_handler(signal, frame):
     script = """
     tell application "Spotify"
@@ -218,10 +222,13 @@ def main(argv):
         print "Making output directory: " + output_dir
         mkdir_p(output_dir)
         for track in extractTracksFromPlaylist(playlistJson['tracks']['href'], token):
-            wt = threading.Thread(target=doRecordTrack, args=[track, playlist])
-            wt.setDaemon(True)
-            wt.start()
-            wait(wt)
+            if trackExists(output_dir, track[0]):
+                print "Track: '%s' already exists in output directory skipping..." % (sanitizeName(track[0]))
+            else:
+                wt = threading.Thread(target=doRecordTrack, args=[track, playlist])
+                wt.setDaemon(True)
+                wt.start()
+                wait(wt)
 
     signal_handler(None, None)
 
