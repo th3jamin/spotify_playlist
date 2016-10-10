@@ -42,15 +42,16 @@ def signal_handler(signal, frame):
     sys.exit(0)
 
 def makeAppleScriptCommand(name, duration, track, playlist):
+    sanitizedName = sanitizeName(name)
     return """set filePath to (path to music folder as text) & "%s:%s.m4a"
 tell application "QuickTime Player"
-    activate
     set new_recording to (new audio recording)
     tell new_recording
         start
         tell application "Spotify"
             play track "%s"
         end tell
+        display notification ("Recording track: %s") with title("Spotify Playlist Recorder")
         delay %s
         stop
         tell application "Spotify"
@@ -62,7 +63,7 @@ tell application "QuickTime Player"
     close access file filePath
     export (first document) in filePath using settings preset "Audio Only"
     close (first document) without saving
-end tell""" % (sanitizeName(playlist), sanitizeName(name), track, duration)
+end tell""" % (sanitizeName(playlist), sanitizedName, track, sanitizedName, duration)
 
 def sanitizeName(name):
     exclude = set(string.punctuation)
