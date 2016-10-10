@@ -3,9 +3,6 @@ import requests, sys, getopt, json, math, subprocess, string, signal, time, thre
 from pprint import pprint
 from Naked.toolshed.shell import execute_js, muterun_js, muterun, execute
 
-currentTrack = None
-runAdBuster = True
-
 def mkdir_p(path):
     try:
         os.makedirs(path)
@@ -90,26 +87,6 @@ end tell""" % (sanitizeName(playlist), sanitizedName, track, sanitizedName, dura
 def sanitizeName(name):
     exclude = set(string.punctuation)
     return ''.join(ch for ch in name if ch not in exclude)
-
-def adBuster():
-    script = """tell application "Spotify"
-        tell current track
-            set u to spotify url
-            log (u contains "spotify:ad")
-        end tell
-    end tell"""
-    cmd = "osascript -e '%s'" % (script)
-    while runAdBuster:
-        r = muterun(cmd)
-        if r.exitcode != 0
-            print "Could not determine current spotify track"
-            addPlaying = 'false'
-        else:
-            addPlaying = r.stdout
-
-        if addPlaying == 'true':
-            # wait for the ad to finish
-
 
 def convertToSeconds(millis):
     return int(math.ceil(millis/1000))
