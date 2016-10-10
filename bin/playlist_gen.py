@@ -3,6 +3,9 @@ import requests, sys, getopt, json, math, subprocess, string, signal, time, thre
 from pprint import pprint
 from Naked.toolshed.shell import execute_js, muterun_js, muterun, execute
 
+currentTrack = None
+runAdBuster = True
+
 def mkdir_p(path):
     try:
         os.makedirs(path)
@@ -43,6 +46,7 @@ def signal_handler(signal, frame):
 
 def makeAppleScriptCommand(name, duration, track, playlist):
     sanitizedName = sanitizeName(name)
+
     return """set filePath to (path to music folder as text) & "%s:%s.m4a"
 tell application "QuickTime Player"
     set new_recording to (new audio recording)
@@ -52,22 +56,60 @@ tell application "QuickTime Player"
             play track "%s"
         end tell
         display notification ("Recording track: %s") with title("Spotify Playlist Recorder")
-        delay %s
+        delay 5
+        tell application "Spotify"
+            tell current track
+                set u to spotify url
+                set playedAd to u contains "spotify:ad"
+                set d to duration
+            end tell
+        end tell
+        if playedAd then
+            delay (%s + d - 5)
+        else
+            delay (%s - 5)
+        end if
         stop
         tell application "Spotify"
             pause
         end tell
     end tell
-
+    -- trim the ad
+    if playedAd then
+        tell (first document)
+            set dd to duration
+            trim from (d + 1) to (dd - 1)
+        end tell
+    end if
     open for access file filePath
     close access file filePath
     export (first document) in filePath using settings preset "Audio Only"
     close (first document) without saving
-end tell""" % (sanitizeName(playlist), sanitizedName, track, sanitizedName, duration)
+end tell""" % (sanitizeName(playlist), sanitizedName, track, sanitizedName, duration, duration)
 
 def sanitizeName(name):
     exclude = set(string.punctuation)
     return ''.join(ch for ch in name if ch not in exclude)
+
+def adBuster():
+    script = """tell application "Spotify"
+        tell current track
+            set u to spotify url
+            log (u contains "spotify:ad")
+        end tell
+    end tell"""
+    cmd = "osascript -e '%s'" % (script)
+    while runAdBuster:
+        r = muterun(cmd)
+        if r.exitcode != 0
+            print "Could not determine current spotify track"
+            addPlaying = 'false'
+        else:
+            addPlaying = r.stdout
+
+        if addPlaying == 'true':
+            # wait for the ad to finish
+
 
 def convertToSeconds(millis):
     return int(math.ceil(millis/1000))
