@@ -46,6 +46,8 @@ def makeAppleScriptCommand(name, duration, track, playlist):
 
     return """set filePath to (path to music folder as text) & "%s:%s.m4a"
 tell application "QuickTime Player"
+    set track_dur to %s
+    set ad_delay to 5
     set new_recording to (new audio recording)
     tell new_recording
         start
@@ -53,7 +55,7 @@ tell application "QuickTime Player"
             play track "%s"
         end tell
         display notification ("Recording track: %s") with title("Spotify Playlist Recorder")
-        delay 5
+        delay ad_delay
         tell application "Spotify"
             tell current track
                 set u to spotify url
@@ -62,9 +64,9 @@ tell application "QuickTime Player"
             end tell
         end tell
         if playedAd then
-            delay (%s + d - 5)
+            delay (track_dur + d - ad_delay)
         else
-            delay (%s - 5)
+            delay (track_dur - ad_delay)
         end if
         stop
         tell application "Spotify"
@@ -75,14 +77,14 @@ tell application "QuickTime Player"
     if playedAd then
         tell (first document)
             set dd to duration
-            trim from (d + 1) to (dd - 1)
+            trim from d to dd
         end tell
     end if
     open for access file filePath
     close access file filePath
     export (first document) in filePath using settings preset "Audio Only"
     close (first document) without saving
-end tell""" % (sanitizeName(playlist), sanitizedName, track, sanitizedName, duration, duration)
+end tell""" % (sanitizeName(playlist), sanitizedName, duration, track, sanitizedName)
 
 def sanitizeName(name):
     exclude = set(string.punctuation)
