@@ -2,6 +2,7 @@
 import requests, sys, getopt, json, math, subprocess, string, signal, time, threading, os, errno, getpass
 from pprint import pprint
 from Naked.toolshed.shell import execute_js, muterun_js, muterun, execute
+from SpotifyAPI import SpotifyTrack
 
 def mkdir_p(path):
     try:
@@ -14,7 +15,6 @@ def mkdir_p(path):
 
 def trackExists(path, name):
     return os.path.isfile("%s/%s.m4a" % (path, sanitizeName(name)))
-
 
 def signal_handler(signal, frame):
     script = """
@@ -41,8 +41,8 @@ def signal_handler(signal, frame):
     muterun(command)
     sys.exit(0)
 
-def makeAppleScriptCommand(name, duration, track, playlist):
-    sanitizedName = sanitizeName(name)
+def makeAppleScriptCommand(track, playlist):
+    sanitizedName = sanitizeName(track.name)
 
     return """set filePath to (path to music folder as text) & "%s:%s.m4a"
 tell application "QuickTime Player"
@@ -84,7 +84,7 @@ tell application "QuickTime Player"
     close access file filePath
     export (first document) in filePath using settings preset "Audio Only"
     close (first document) without saving
-end tell""" % (sanitizeName(playlist), sanitizedName, duration, track, sanitizedName)
+end tell""" % (sanitizeName(playlist), sanitizedName, track.getDurationSeconds(), track.uri, sanitizedName)
 
 def sanitizeName(name):
     exclude = set(string.punctuation)
@@ -130,22 +130,24 @@ def extractTracksFromPlaylist(url, token):
     tracks = []
 
     for item in json["items"]:
-        name = item['track']['name']
-        duration = convertToSeconds(item['track']['duration_ms']) + 1 # add buffer
-        uri = item['track']['uri']
-        tracks.append((name,duration,uri))
+        s =  SpotifyTrack(item)
+        tracks.append(s)
 
     if json.get('next'):
         tracks = tracks + extractTracksFromPlaylist(json["next"], token)
 
     return tracks
 
-def doRecordTrack(track, playlist):
-    script = makeAppleScriptCommand(track[0],track[1],track[2], playlist)
+def doRecordTrack(track, playlist, filename):
+    script = makeAppleScriptCommand(track, playlist)
     command = "osascript -e '%s'" % (script)
-    print "Processing track: %s, %s, %s" % (track[0],track[1],track[2])
+    print "Processing track: %s, %s, %s" % (track.name, track.getDurationSeconds(), track.uri)
     p = muterun(command)
-    time.sleep(3) # deply to let quicktime do its thing
+    # delay to let quicktime finish export
+    print "Waiting for QuickTime export to finish..."
+    time.sleep(5)
+    # tag the track
+    track.tag(filename)
 
 def startNodeServer():
     dir_path = os.path.dirname(os.path.realpath(__file__)) + "/../app.js"
@@ -244,10 +246,11 @@ def main(argv):
         print "Making output directory: " + output_dir
         mkdir_p(output_dir)
         for track in extractTracksFromPlaylist(playlistJson['tracks']['href'], token):
-            if trackExists(output_dir, track[0]):
-                print "Track: '%s' already exists in output directory skipping..." % (sanitizeName(track[0]))
+            filename = '%s/%s.m4a' % (output_dir, sanitizeName(track.name))
+            if os.path.isfile(filename):
+                print "Track: '%s' already exists in output directory skipping..." % (sanitizeName(track.name))
             else:
-                wt = threading.Thread(target=doRecordTrack, args=[track, playlist])
+                wt = threading.Thread(target=doRecordTrack, args=[track, playlist, filename])
                 wt.setDaemon(True)
                 wt.start()
                 wait(wt)

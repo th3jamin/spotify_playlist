@@ -4,4 +4,4 @@ echo "Setting up your environment...."
 
 brew install node
 npm install
-pip install --user naked requests
+pip install --user naked requests mutagen
