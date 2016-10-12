@@ -89,7 +89,7 @@ def sanitizeName(name):
     return ''.join(ch for ch in name if ch not in exclude)
 
 def usage():
-    print 'playlist_gen.py -p <playlist-name>'
+    print 'PlaylistGen.py -t -p <playlist-name>'
 
 def findPlaylist(url, token, name):
     # loop trough all playlists until we find or exhaust,
