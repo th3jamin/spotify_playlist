@@ -37,6 +37,9 @@ class SpotifyTrack:
     def sanitize(self, filename):
         return filename.replace('/', ':')
 
+    def getTrackName(self):
+        return self.name.replace('"', '').replace(":",'')
+
     def tag(self, filename, withRetry=True):
         if os.path.isfile(filename):
             # tag the track, need to loop because the export process in non-deterministic

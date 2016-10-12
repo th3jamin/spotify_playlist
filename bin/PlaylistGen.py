@@ -82,7 +82,7 @@ tell application \\"QuickTime Player\\"
     close access file filePath
     export (first document) in filePath using settings preset \\"Audio Only\\"
     close (first document) without saving
-end tell""" % (playlist, track.name, track.getDurationSeconds(), track.uri, track.name, track.artist)
+end tell""" % (playlist, track.getTrackName(), track.getDurationSeconds(), track.uri, track.getTrackName(), track.artist)
 
 def sanitizeName(name):
     exclude = set(string.punctuation)
@@ -246,13 +246,13 @@ def main(argv):
         print "Making output directory: " + output_dir
         mkdir_p(output_dir)
         for track in extractTracksFromPlaylist(playlistJson['tracks']['href'], token):
-            filename = '%s/%s.m4a' % (output_dir, track.name)
+            filename = '%s/%s.m4a' % (output_dir, track.getTrackName())
             if os.path.isfile(filename):
                 if tag_only:
                     print "Tagging track %s" % (track.name)
                     track.tag(filename, True)
                 else:
-                    print "Track: '%s' already exists in output directory skipping..." % (track.name)
+                    print "Track: '%s' already exists in output directory skipping..." % (track.getTrackName())
             else:
                 wt = threading.Thread(target=doRecordTrack, args=[track, playlist, filename])
                 wt.setDaemon(True)
