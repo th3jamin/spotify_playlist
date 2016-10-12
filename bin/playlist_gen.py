@@ -14,7 +14,7 @@ def mkdir_p(path):
             raise
 
 def trackExists(path, name):
-    return os.path.isfile("%s/%s.m4a" % (path, sanitizeName(name)))
+    return os.path.isfile("%s/%s.m4a" % (path, name))
 
 def signal_handler(signal, frame):
     script = """
@@ -42,24 +42,22 @@ def signal_handler(signal, frame):
     sys.exit(0)
 
 def makeAppleScriptCommand(track, playlist):
-    sanitizedName = sanitizeName(track.name)
-
-    return """set filePath to (path to music folder as text) & "%s:%s.m4a"
-tell application "QuickTime Player"
+    return """set filePath to (path to music folder as text) & \\"%s:%s.m4a\\"
+tell application \\"QuickTime Player\\"
     set track_dur to %s
-    set ad_delay to 5
+    set ad_delay to 3
     set new_recording to (new audio recording)
     tell new_recording
         start
-        tell application "Spotify"
-            play track "%s"
+        tell application \\"Spotify\\"
+            play track \\"%s\\"
         end tell
-        display notification ("Recording track: %s") with title("Spotify Playlist Recorder")
+        display notification (\\"Recording track: %s - %s\\") with title(\\"Spotify Playlist Recorder\\")
         delay ad_delay
-        tell application "Spotify"
+        tell application \\"Spotify\\"
             tell current track
                 set u to spotify url
-                set playedAd to u contains "spotify:ad"
+                set playedAd to u contains \\"spotify:ad\\"
                 set d to duration
             end tell
         end tell
@@ -69,7 +67,7 @@ tell application "QuickTime Player"
             delay (track_dur - ad_delay)
         end if
         stop
-        tell application "Spotify"
+        tell application \\"Spotify\\"
             pause
         end tell
     end tell
@@ -82,16 +80,13 @@ tell application "QuickTime Player"
     end if
     open for access file filePath
     close access file filePath
-    export (first document) in filePath using settings preset "Audio Only"
+    export (first document) in filePath using settings preset \\"Audio Only\\"
     close (first document) without saving
-end tell""" % (sanitizeName(playlist), sanitizedName, track.getDurationSeconds(), track.uri, sanitizedName)
+end tell""" % (playlist, track.name, track.getDurationSeconds(), track.uri, track.name, track.artist)
 
 def sanitizeName(name):
     exclude = set(string.punctuation)
     return ''.join(ch for ch in name if ch not in exclude)
-
-def convertToSeconds(millis):
-    return int(math.ceil(millis/1000))
 
 def usage():
     print 'playlist_gen.py -p <playlist-name>'
@@ -140,14 +135,16 @@ def extractTracksFromPlaylist(url, token):
 
 def doRecordTrack(track, playlist, filename):
     script = makeAppleScriptCommand(track, playlist)
-    command = "osascript -e '%s'" % (script)
+    command = "osascript -e \"%s\"" % (script)
     print "Processing track: %s, %s, %s" % (track.name, track.getDurationSeconds(), track.uri)
     p = muterun(command)
+    if p.exitcode != 0:
+        print p.stderr
     # delay to let quicktime finish export
     print "Waiting for QuickTime export to finish..."
-    time.sleep(5)
-    # tag the track
-    track.tag(filename)
+    time.sleep(1)
+    print "Tagging track %s" % (track.name)
+    track.tag(filename, True)
 
 def startNodeServer():
     dir_path = os.path.dirname(os.path.realpath(__file__)) + "/../app.js"
@@ -176,14 +173,15 @@ def main(argv):
     signal.signal(signal.SIGINT, signal_handler)
 
     playlist = ''
+    tag_only = False
 
     # exactly 3 args!
-    if len(argv) != 2:
+    if len(argv) != 2 and len(argv) != 3:
         usage()
         sys.exit(2)
 
     try:
-        opts, args = getopt.getopt(argv,"p:h",["playlist="])
+        opts, args = getopt.getopt(argv,"p:ht",["playlist="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -191,6 +189,8 @@ def main(argv):
         if opt == '-h':
             usage()
             sys.exit()
+        elif opt == '-t':
+            tag_only = True
         elif opt in ("-p", "--playlist"):
             playlist = unicode(arg, 'utf_8')
     print 'Playlist is "', playlist
@@ -242,13 +242,17 @@ def main(argv):
         print "Could not find playlist"
     else:
         # make the output dir beforehand
-        output_dir = "/Users/%s/Music/%s" % (getpass.getuser(), sanitizeName(playlist))
+        output_dir = "/Users/%s/Music/%s" % (getpass.getuser(), playlist)
         print "Making output directory: " + output_dir
         mkdir_p(output_dir)
         for track in extractTracksFromPlaylist(playlistJson['tracks']['href'], token):
-            filename = '%s/%s.m4a' % (output_dir, sanitizeName(track.name))
+            filename = '%s/%s.m4a' % (output_dir, track.name)
             if os.path.isfile(filename):
-                print "Track: '%s' already exists in output directory skipping..." % (sanitizeName(track.name))
+                if tag_only:
+                    print "Tagging track %s" % (track.name)
+                    track.tag(filename, True)
+                else:
+                    print "Track: '%s' already exists in output directory skipping..." % (track.name)
             else:
                 wt = threading.Thread(target=doRecordTrack, args=[track, playlist, filename])
                 wt.setDaemon(True)
